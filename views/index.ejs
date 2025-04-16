@@ -11,7 +11,7 @@
 
         // Variables to track ping status
         let unstablePingCount = 0;  // Count consecutive unstable pings
-        const maxUnstablePings = 3;  // Max number of unstable pings before disconnect
+        const maxUnstablePings = 10;  // Max number of unstable pings before disconnect
         let missedPings = 0;  // Count missed pings (packet loss)
         let totalPings = 0;  // Count total pings sent
 
@@ -91,7 +91,7 @@
         }
 
         // Send ping every 5 seconds (as an example)
-        setInterval(sendPing, 2000);
+        setInterval(sendPing, 5000);
     </script>
 </head>
 <body>
