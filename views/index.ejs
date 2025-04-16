@@ -28,16 +28,16 @@
     </style>
     <script>
         document.addEventListener('DOMContentLoaded', function () {
-            // Connect to the server using Socket.IO
-            const socket = io();
+            // Function to initialize and reconnect the socket
+            let socket = initializeSocket();
 
             // Variables to track ping status
-            let unstablePingCount = 0;  // Count consecutive unstable pings
-            const maxUnstablePings = 12;  // Max number of unstable pings before disconnect
-            let missedPings = 0;  // Count missed pings (packet loss)
-            let totalPings = 0;  // Count total pings sent
-            const pingTimeout = 3000; // Timeout for missing pong (5 seconds)
-
+            let unstablePingCount = 0;
+            const maxUnstablePings = 12;
+            let missedPings = 0;
+            let totalPings = 0;
+            const pingTimeout = 3000; // Timeout for missing pong (3 seconds)
+            
             // RTT chart setup
             const rttData = [];
             const rttChart = new Chart(document.getElementById('rttChart').getContext('2d'), {
@@ -60,6 +60,13 @@
                 }
             });
 
+            // Function to initialize a new socket connection
+            function initializeSocket() {
+                const socket = io();
+                socket.on('pong', handlePong);
+                return socket;
+            }
+
             // Function to send a ping to the server
             function sendPing() {
                 const uid = Math.random().toString(36).substring(7);  // Generate unique ID
@@ -79,8 +86,8 @@
                 socket.emit('ping', { uid, sendTime, pingTimeoutId });
             }
 
-            // Listen for the "pong" message from the server
-            socket.on('pong', (data) => {
+            // Function to handle the pong response from the server
+            function handlePong(data) {
                 const receiveTime = Date.now();  // Timestamp when pong is received
                 const sendTime = data.sendTime;  // Timestamp from the ping sent earlier
                 const pingTimeoutId = data.pingTimeoutId;  // Timeout ID from the ping sent earlier
@@ -116,7 +123,7 @@
                 rttData.push(rtt);
                 rttChart.data.labels.push(receiveTime);
                 rttChart.update();
-            });
+            }
 
             // Function to display connection status in the UI
             function displayConnectionStatus(status, rtt, color, icon) {
@@ -144,6 +151,7 @@
 
             // Reset Button logic
             document.getElementById('resetBtn').addEventListener('click', function () {
+                // Reset connection stats
                 missedPings = 0;
                 totalPings = 0;
                 unstablePingCount = 0;
@@ -151,6 +159,10 @@
                 displayConnectionStatus('Connecting...', 0, 'black', '🔄');
                 rttData.length = 0;  // Clear the chart data
                 rttChart.update();
+
+                // Close the current socket connection and create a new one
+                socket.disconnect();
+                socket = initializeSocket();
             });
         });
     </script>
