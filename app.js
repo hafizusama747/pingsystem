@@ -2,60 +2,53 @@ const express = require('express');
 const http = require('http');
 const socketIo = require('socket.io');
 const bodyParser = require('body-parser');
-
-// Import the routes from 'routes/index.js'
-const routes = require('./routes/index');
+const path = require('path');
 
 // Initialize express app
 const app = express();
 const server = http.createServer(app);
-
-// Initialize socket.io
 const io = socketIo(server);
 
-// Middleware to parse JSON bodies for POST requests
-app.use(bodyParser.json());  // for parsing application/json
+// Middleware for body parsing
+app.use(bodyParser.json());
 
-// Set EJS as the view engine
+// Set up EJS view engine
 app.set('view engine', 'ejs');
+app.set('views', path.join(__dirname, 'views'));
 
-// Specify the directory for views (optional, default is 'views')
-app.set('views', __dirname + '/views');  // This is where your EJS templates will be stored
+// Serve static files (e.g., images, JS, CSS)
+app.use(express.static(path.join(__dirname, 'public')));
 
-// Use the imported routes for all requests starting with /
-app.use('/', routes);
+// Route for the home page
+app.get('/', (req, res) => {
+  res.render('index');
+});
 
-// Event listener for client connections using Socket.IO
-
-// Event listener for client connections using Socket.IO
+// Handle Socket.IO connections
 io.on('connection', (socket) => {
   console.log('Client connected: ', socket.id);
 
-  // Listen for a "ping" message from the client
   socket.on('ping', (data) => {
-    const { uid, sendTime, pingTimeoutId } = data;
-    console.log(`Received ping from UID: ${uid} at ${sendTime}`);
-    
-    // Respond back to the client with a "pong", including sendTime and pingTimeoutId
-    socket.emit('pong', { uid, sendTime, pingTimeoutId });
-});
+    console.log(`Received ping from UID: ${data.uid}`);
 
-  // Listen for a custom "disconnectPlayer" event from the client
+    // Simulate processing delay (optional for testing)
+    setTimeout(() => {
+      socket.emit('pong', { uid: data.uid, sendTime: data.sendTime, pingTimeoutId: data.pingTimeoutId });
+    }, 10);  // Simulated delay of 10ms (optional)
+  });
+
   socket.on('disconnectPlayer', () => {
-      console.log('Disconnecting player due to high ping...');
-      socket.disconnect(true);  // Forcefully disconnect the client
+    console.log(`Disconnecting player: ${socket.id}`);
+    socket.disconnect(true); // Disconnect player if needed
   });
 
   socket.on('disconnect', () => {
-      console.log('Client disconnected: ', socket.id);
+    console.log('Client disconnected: ', socket.id);
   });
 });
-
-
-
 
 // Start the server
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => {
-    console.log(`Server running on port ${PORT}`);
+  console.log(`Server running on port ${PORT}`);
 });
