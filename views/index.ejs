@@ -33,7 +33,7 @@
 
             // Variables to track ping status
             let unstablePingCount = 0;  // Count consecutive unstable pings
-            const maxUnstablePings = 10;  // Max number of unstable pings before disconnect
+            const maxUnstablePings = 15;  // Max number of unstable pings before disconnect
             let missedPings = 0;  // Count missed pings (packet loss)
             let totalPings = 0;  // Count total pings sent
             const pingTimeout = 5000; // Timeout for missing pong (5 seconds)
