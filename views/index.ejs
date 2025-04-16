@@ -4,145 +4,179 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Ping Pong RTT with Connection Stability and Packet Loss</title>
-    <!-- Add Bootstrap CSS -->
+    <!-- Bootstrap CSS -->
     <link href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css" rel="stylesheet">
-
+    <!-- Chart.js for RTT graph -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="/socket.io/socket.io.js"></script>
+    <style>
+        #status {
+            font-size: 1.5rem;
+            font-weight: bold;
+        }
+        #packetLoss {
+            font-size: 1.2rem;
+            color: #555;
+        }
+        #rttChart {
+            width: 100%;
+            height: 400px;
+        }
+        .container {
+            margin-top: 20px;
+        }
+    </style>
     <script>
-        // Connect to the server using Socket.IO
-        const socket = io();
+        document.addEventListener('DOMContentLoaded', function () {
+            // Connect to the server using Socket.IO
+            const socket = io();
 
-        // Variables to track ping status
-        let unstablePingCount = 0;  // Count consecutive unstable pings
-        const maxUnstablePings = 10;  // Max number of unstable pings before disconnect
-        let missedPings = 0;  // Count missed pings (packet loss)
-        let totalPings = 0;  // Count total pings sent
+            // Variables to track ping status
+            let unstablePingCount = 0;  // Count consecutive unstable pings
+            const maxUnstablePings = 10;  // Max number of unstable pings before disconnect
+            let missedPings = 0;  // Count missed pings (packet loss)
+            let totalPings = 0;  // Count total pings sent
+            const pingTimeout = 5000; // Timeout for missing pong (5 seconds)
 
-        // Timeout for missed ping (in milliseconds)
-        const pingTimeout = 5000; // Timeout of 5 seconds (for missing pong)
+            // RTT chart setup
+            const rttData = [];
+            const rttChart = new Chart(document.getElementById('rttChart').getContext('2d'), {
+                type: 'line',
+                data: {
+                    labels: [],
+                    datasets: [{
+                        label: 'RTT (ms)',
+                        data: rttData,
+                        borderColor: 'rgba(75, 192, 192, 1)',
+                        fill: false
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    scales: {
+                        x: { type: 'linear', position: 'bottom' },
+                        y: { beginAtZero: true }
+                    }
+                }
+            });
 
-        // Function to send a ping to the server
-        function sendPing() {
-            const uid = Math.random().toString(36).substring(7);  // Generate unique ID
-            const sendTime = Date.now();  // Current timestamp when ping is sent
+            // Function to send a ping to the server
+            function sendPing() {
+                const uid = Math.random().toString(36).substring(7);  // Generate unique ID
+                const sendTime = Date.now();  // Current timestamp when ping is sent
 
-            console.log(`Sending ping with UID: ${uid} at ${sendTime}`);
+                console.log(`Sending ping with UID: ${uid} at ${sendTime}`);
+                totalPings++;
 
-            // Increment total ping count
-            totalPings++;
+                // Create a timeout for missed ping (if no pong is received)
+                const pingTimeoutId = setTimeout(() => {
+                    console.log(`Ping with UID: ${uid} was missed (no pong received within timeout).`);
+                    missedPings++;  // Increment missed ping count
+                    updatePacketLossDisplay();
+                }, pingTimeout);
 
-            // Create a timeout for missed ping (if no pong is received)
-            const pingTimeoutId = setTimeout(() => {
-                console.log(`Ping with UID: ${uid} was missed (no pong received within timeout).`);
-                missedPings++;  // Increment missed ping count
+                // Send the "ping" message to the server
+                socket.emit('ping', { uid, sendTime, pingTimeoutId });
+            }
+
+            // Listen for the "pong" message from the server
+            socket.on('pong', (data) => {
+                const receiveTime = Date.now();  // Timestamp when pong is received
+                const sendTime = data.sendTime;  // Timestamp from the ping sent earlier
+                const pingTimeoutId = data.pingTimeoutId;  // Timeout ID from the ping sent earlier
+
+                // Clear the timeout for missed ping, since pong was received
+                clearTimeout(pingTimeoutId);
+
+                // Calculate RTT using client-side timestamps
+                const rtt = receiveTime - sendTime;
+                console.log(`Received pong with UID: ${data.uid}`);
+                console.log(`RTT: ${rtt} ms`);
+
+                // Evaluate connection stability
+                if (rtt < 200) {
+                    displayConnectionStatus('Stable', rtt, 'green', '👍');
+                } else if (rtt >= 200 && rtt <= 300) {
+                    displayConnectionStatus('Unstable', rtt, 'orange', '⚠️');
+                } else {
+                    displayConnectionStatus('Very Unstable', rtt, 'red', '❌');
+                    unstablePingCount++;  // Increment unstable ping count
+                }
+
+                // Check if unstable ping count exceeds the threshold
+                if (unstablePingCount >= maxUnstablePings) {
+                    console.log("Disconnecting player due to poor connection...");
+                    socket.emit('disconnectPlayer');  // Emit the custom event to disconnect
+                    displayConnectionStatus('Disconnected due to high ping', rtt, 'red', '❌');
+                }
+
                 updatePacketLossDisplay();
-            }, pingTimeout);
 
-            // Send the "ping" message to the server
-            socket.emit('ping', { uid, sendTime, pingTimeoutId });
-        }
+                // Update the RTT chart with new data
+                rttData.push(rtt);
+                rttChart.data.labels.push(receiveTime);
+                rttChart.update();
+            });
 
-        // Listen for the "pong" message from the server
-        socket.on('pong', (data) => {
-            const receiveTime = Date.now();  // Timestamp when pong is received
-            const sendTime = data.sendTime;  // Timestamp from the ping sent earlier
-            const pingTimeoutId = data.pingTimeoutId;  // Timeout ID from the ping sent earlier
-
-            // Clear the timeout for missed ping, since pong was received
-            clearTimeout(pingTimeoutId);
-
-            // Calculate RTT using client-side timestamps
-            const rtt = receiveTime - sendTime;
-            console.log(`Received pong with UID: ${data.uid}`);
-            console.log(`RTT: ${rtt} ms`);
-
-            // Evaluate connection stability
-            if (rtt < 200) {
-                console.log("Connection is stable");
-                unstablePingCount = 0;  // Reset unstable ping count
-                displayConnectionStatus('Stable', rtt);
-            } else if (rtt >= 200 && rtt <= 300) {
-                console.log("Connection is unstable");
-                displayConnectionStatus('Unstable', rtt);
-            } else {
-                console.log("Connection is very unstable");
-                displayConnectionStatus('Very Unstable', rtt);
-                unstablePingCount++;  // Increment unstable ping count
+            // Function to display connection status in the UI
+            function displayConnectionStatus(status, rtt, color, icon) {
+                const statusElement = document.getElementById('status');
+                statusElement.innerHTML = `${icon} ${status} | RTT: ${rtt} ms`;
+                statusElement.style.color = color;  // Change color dynamically
             }
 
-            // Check if unstable ping count exceeds the threshold
-            if (unstablePingCount >= maxUnstablePings) {
-                console.log("Disconnecting player due to poor connection...");
-                socket.emit('disconnectPlayer');  // Emit the custom event to disconnect
-                displayConnectionStatus('Disconnected due to high ping', rtt);
+            // Function to update packet loss display
+            function updatePacketLossDisplay() {
+                const lossPercentage = (missedPings / totalPings) * 100;
+                const lossElement = document.getElementById('packetLoss');
+                lossElement.innerHTML = `Packet Loss: ${missedPings} missed pings (${lossPercentage.toFixed(2)}%)`;
             }
 
-            updatePacketLossDisplay();
+            // Event listener for ping interval
+            document.getElementById('pingInterval').addEventListener('input', function() {
+                const pingInterval = parseInt(this.value) * 1000;
+                clearInterval(pingIntervalId);
+                pingIntervalId = setInterval(sendPing, pingInterval);
+            });
+
+            // Send ping every 5 seconds by default
+            let pingIntervalId = setInterval(sendPing, 5000);
+
+            // Reset Button logic
+            document.getElementById('resetBtn').addEventListener('click', function () {
+                missedPings = 0;
+                totalPings = 0;
+                unstablePingCount = 0;
+                updatePacketLossDisplay();
+                displayConnectionStatus('Connecting...', 0, 'black', '🔄');
+                rttData.length = 0;  // Clear the chart data
+                rttChart.update();
+            });
         });
-
-        // Function to display connection status in the UI (or log to console)
-        function displayConnectionStatus(status, rtt) {
-            const statusElement = document.getElementById('status');
-            statusElement.innerHTML = `Ping Status: ${status} | RTT: ${rtt} ms`;
-        }
-
-        // Function to update packet loss display
-        function updatePacketLossDisplay() {
-            const lossPercentage = (missedPings / totalPings) * 100;
-            const lossElement = document.getElementById('packetLoss');
-            lossElement.innerHTML = `Packet Loss: ${missedPings} missed pings (${lossPercentage.toFixed(2)}%)`;
-        }
-
-        // Send ping every 5 seconds (as an example)
-        setInterval(sendPing, 3000);
     </script>
 </head>
-<body class="bg-light">
+<body>
+    <div class="container mt-5">
+        <h1>Ping Pong RTT with Connection Stability and Packet Loss</h1>
+        <p>Open the browser console to see the RTT logs.</p>
 
-    <!-- Main Container -->
-    <div class="container py-5">
+        <div class="alert alert-info" id="status">Ping Status: Connecting...</div>
+        <div class="alert alert-warning" id="packetLoss">Packet Loss: 0 missed pings (0%)</div>
 
-        <!-- Page Heading -->
-        <div class="row">
-            <div class="col text-center">
-                <h1 class="display-4 text-primary">Ping Pong RTT with Connection Stability and Packet Loss</h1>
-                <p class="lead text-muted">Open the browser console to see the RTT logs.</p>
-            </div>
+        <div class="form-group">
+            <label for="pingInterval">Ping Interval (in seconds):</label>
+            <input type="number" id="pingInterval" class="form-control" min="1" value="5">
         </div>
 
-        <!-- Connection Status Card -->
-        <div class="row">
-            <div class="col-lg-6 mx-auto">
-                <div class="card shadow-lg border-light">
-                    <div class="card-header bg-info text-white">
-                        <h5 class="mb-0">Connection Status</h5>
-                    </div>
-                    <div class="card-body">
-                        <p id="status" class="h5 text-center">Ping Status: Connecting...</p>
-                    </div>
-                </div>
-            </div>
+        <div>
+            <canvas id="rttChart"></canvas>
         </div>
 
-        <!-- Packet Loss Card -->
-        <div class="row mt-4">
-            <div class="col-lg-6 mx-auto">
-                <div class="card shadow-lg border-light">
-                    <div class="card-header bg-warning text-dark">
-                        <h5 class="mb-0">Packet Loss</h5>
-                    </div>
-                    <div class="card-body">
-                        <p id="packetLoss" class="h5 text-center">Packet Loss: 0 missed pings (0%)</p>
-                    </div>
-                </div>
-            </div>
-        </div>
+        <button id="resetBtn" class="btn btn-primary mt-3">Reset Connection Stats</button>
+    </div>
 
-    </div> <!-- End of Container -->
-
-    <!-- Add Bootstrap JS and dependencies -->
+    <!-- Bootstrap JS -->
     <script src="https://code.jquery.com/jquery-3.5.1.slim.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.5.3/dist/umd/popper.min.js"></script>
-    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@4.5.2/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>
