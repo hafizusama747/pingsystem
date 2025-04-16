@@ -4,6 +4,9 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Ping Pong RTT with Connection Stability and Packet Loss</title>
+    <!-- Add Bootstrap CSS -->
+    <link href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css" rel="stylesheet">
+
     <script src="/socket.io/socket.io.js"></script>
     <script>
         // Connect to the server using Socket.IO
@@ -16,7 +19,7 @@
         let totalPings = 0;  // Count total pings sent
 
         // Timeout for missed ping (in milliseconds)
-        const pingTimeout = 3000; // Timeout of 3 seconds (for missing pong)
+        const pingTimeout = 5000; // Timeout of 5 seconds (for missing pong)
 
         // Function to send a ping to the server
         function sendPing() {
@@ -54,11 +57,11 @@
             console.log(`RTT: ${rtt} ms`);
 
             // Evaluate connection stability
-            if (rtt < 30) {
+            if (rtt < 200) {
                 console.log("Connection is stable");
                 unstablePingCount = 0;  // Reset unstable ping count
                 displayConnectionStatus('Stable', rtt);
-            } else if (rtt >= 30 && rtt <= 50) {
+            } else if (rtt >= 200 && rtt <= 300) {
                 console.log("Connection is unstable");
                 displayConnectionStatus('Unstable', rtt);
             } else {
@@ -94,10 +97,52 @@
         setInterval(sendPing, 5000);
     </script>
 </head>
-<body>
-    <h1>Ping Pong RTT with Connection Stability and Packet Loss</h1>
-    <p>Open the browser console to see the RTT logs.</p>
-    <p id="status">Ping Status: Connecting...</p>
-    <p id="packetLoss">Packet Loss: 0 missed pings (0%)</p>  <!-- Display packet loss here -->
+<body class="bg-light">
+
+    <!-- Main Container -->
+    <div class="container py-5">
+
+        <!-- Page Heading -->
+        <div class="row">
+            <div class="col text-center">
+                <h1 class="display-4 text-primary">Ping Pong RTT with Connection Stability and Packet Loss</h1>
+                <p class="lead text-muted">Open the browser console to see the RTT logs.</p>
+            </div>
+        </div>
+
+        <!-- Connection Status Card -->
+        <div class="row">
+            <div class="col-lg-6 mx-auto">
+                <div class="card shadow-lg border-light">
+                    <div class="card-header bg-info text-white">
+                        <h5 class="mb-0">Connection Status</h5>
+                    </div>
+                    <div class="card-body">
+                        <p id="status" class="h5 text-center">Ping Status: Connecting...</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Packet Loss Card -->
+        <div class="row mt-4">
+            <div class="col-lg-6 mx-auto">
+                <div class="card shadow-lg border-light">
+                    <div class="card-header bg-warning text-dark">
+                        <h5 class="mb-0">Packet Loss</h5>
+                    </div>
+                    <div class="card-body">
+                        <p id="packetLoss" class="h5 text-center">Packet Loss: 0 missed pings (0%)</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </div> <!-- End of Container -->
+
+    <!-- Add Bootstrap JS and dependencies -->
+    <script src="https://code.jquery.com/jquery-3.5.1.slim.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.5.3/dist/umd/popper.min.js"></script>
+    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
 </body>
 </html>
