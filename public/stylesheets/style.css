@@ -1,0 +1,47 @@
+body {
+  font-family: Arial, sans-serif;
+  background: #f4f4f4;
+  margin: 0;
+  padding: 0;
+}
+
+#chat-container {
+  max-width: 600px;
+  margin: 50px auto;
+  background: white;
+  border-radius: 10px;
+  overflow: hidden;
+  box-shadow: 0 0 10px rgba(0,0,0,0.1);
+}
+
+#messages {
+  list-style-type: none;
+  margin: 0;
+  padding: 10px;
+  height: 300px;
+  overflow-y: scroll;
+  border-bottom: 1px solid #ddd;
+}
+
+#chat-form {
+  display: flex;
+  padding: 10px;
+  border-top: 1px solid #ddd;
+}
+
+#msg {
+  flex: 1;
+  padding: 10px;
+  border: 1px solid #ccc;
+  border-radius: 5px;
+}
+
+button {
+  padding: 10px 15px;
+  background: #28a745;
+  color: white;
+  border: none;
+  margin-left: 10px;
+  border-radius: 5px;
+  cursor: pointer;
+}
